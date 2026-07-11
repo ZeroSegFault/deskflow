@@ -18,6 +18,7 @@
 #include <mach/mach_interface.h>
 #include <mach/mach_port.h>
 
+#include <array>
 #include <bitset>
 #include <map>
 #include <memory>
@@ -106,6 +107,7 @@ private:
   bool updateScreenShape();
   bool updateScreenShape(const CGDirectDisplayID, const CGDisplayChangeSummaryFlags);
   void postMouseEvent(CGPoint &) const;
+  uint32_t nextMouseEventNumber() const;
 
   // convenience function to send events
   void sendEvent(EventTypes type, void * = nullptr) const;
@@ -243,6 +245,8 @@ private:
      Evil, and this should be moved to a place where it need not
      be mutable as soon as possible. */
   mutable MouseButtonState m_buttonState;
+  mutable uint32_t m_mouseEventNumber = 0;
+  mutable std::array<uint32_t, NumButtonIDs> m_mouseEventNumbers{};
   using MouseButtonEventMapType = std::map<uint16_t, CGEventType>;
   std::vector<MouseButtonEventMapType> MouseButtonEventMap;
 

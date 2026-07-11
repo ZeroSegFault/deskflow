@@ -41,6 +41,8 @@
 #include <mach-o/dyld.h>
 #include <math.h>
 
+#include <limits>
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
@@ -463,6 +465,10 @@ void OSXScreen::postMouseEvent(CGPoint &pos) const
 
   CGEventRef event = CGEventCreateMouseEvent(nullptr, type, pos, static_cast<CGMouseButton>(button));
 
+  if (button >= 0) {
+    CGEventSetIntegerValueField(event, kCGMouseEventNumber, m_mouseEventNumbers[button]);
+  }
+
   // Dragging events also need the click state
   CGEventSetIntegerValueField(event, kCGMouseEventClickState, m_clickState);
 
@@ -486,9 +492,16 @@ void OSXScreen::postMouseEvent(CGPoint &pos) const
   CGEventSetDoubleValueField(event, kCGMouseEventDeltaX, deltaFX);
   CGEventSetDoubleValueField(event, kCGMouseEventDeltaY, deltaFY);
 
-  CGEventPost(kCGHIDEventTap, event);
+  CGEventPost(kCGSessionEventTap, event);
 
   CFRelease(event);
+}
+
+uint32_t OSXScreen::nextMouseEventNumber() const
+{
+  constexpr auto maxEventNumber = static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+  m_mouseEventNumber = m_mouseEventNumber == maxEventNumber ? 1 : m_mouseEventNumber + 1;
+  return m_mouseEventNumber;
 }
 
 void OSXScreen::fakeMouseButton(ButtonID id, bool press)
@@ -547,6 +560,11 @@ void OSXScreen::fakeMouseButton(ButtonID id, bool press)
 
   CGEventRef event = CGEventCreateMouseEvent(nullptr, type, pos, static_cast<CGMouseButton>(index));
 
+  if (press) {
+    m_mouseEventNumbers[index] = nextMouseEventNumber();
+  }
+  CGEventSetIntegerValueField(event, kCGMouseEventNumber, m_mouseEventNumbers[index]);
+
   CGEventSetIntegerValueField(event, kCGMouseEventClickState, m_clickState);
 
   // Fix for sticky keys
@@ -554,7 +572,11 @@ void OSXScreen::fakeMouseButton(ButtonID id, bool press)
   CGEventSetFlags(event, modifiers);
 
   m_buttonState.set(index, state);
-  CGEventPost(kCGHIDEventTap, event);
+  CGEventPost(kCGSessionEventTap, event);
+
+  if (!press) {
+    m_mouseEventNumbers[index] = 0;
+  }
 
   CFRelease(event);
 }
